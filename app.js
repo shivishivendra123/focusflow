@@ -181,7 +181,6 @@ const state = {
   completedSessions: 0,
   interval: null,
   sessionLabel: '',
-  sessionStartedAt: null,
   endTime: null,        // timestamp when timer should finish
 
   settings: {
@@ -311,11 +310,32 @@ function init() {
 // ---- Restore timer after app reopen ----
 function restoreTimerState() {
   const saved = storage.get('timerState', null);
-  if (!saved || !saved.endTime) return;
+  if (!saved || !saved.endTime) {
+    // Check if there's orphaned partial progress (app was killed while timer
+    // was paused or in an unusual state)
+    const orphan = storage.get('partialProgress', null);
+    if (orphan && orphan.elapsed >= 5 && orphan.mode === 'focus') {
+      // Credit the orphaned elapsed time
+      const now = new Date();
+      const dateStr = now.toISOString().slice(0, 10);
+      state.sessions.push({
+        date: dateStr,
+        duration: orphan.elapsed,
+        label: orphan.label || 'Focus Session',
+        timestamp: now.toISOString(),
+      });
+      saveSessions();
+      updateTodayStats();
+      renderCalendar();
+      renderRecentSessions();
+      storage.set('partialProgress', null);
+    }
+    return;
+  }
 
   const remaining = Math.round((saved.endTime - Date.now()) / 1000);
   if (remaining <= 0) {
-    // Timer expired while app was closed — record the session
+    // Timer expired while app was closed — record the full session
     storage.set('timerState', null);
     setMode(saved.mode);
     state.totalTime = saved.totalTime;
@@ -389,6 +409,7 @@ function saveSessions() {
 }
 
 function addSession(durationSeconds) {
+  if (durationSeconds < 5) return; // Ignore trivially short sessions (< 5 seconds)
   const now = new Date();
   const dateStr = now.toISOString().slice(0, 10);
   state.sessions.push({
@@ -401,6 +422,26 @@ function addSession(durationSeconds) {
   updateTodayStats();
   renderCalendar();
   renderRecentSessions();
+}
+
+/**
+ * Save any elapsed focus time as a partial session.
+ * Called when the timer is reset, paused, or the app is being killed.
+ * Only records if the mode is 'focus' and at least 5 seconds have elapsed.
+ */
+function savePartialProgress() {
+  if (state.mode !== 'focus') return 0;
+  let elapsed = 0;
+  if (state.isRunning && state.endTime) {
+    const actualRemaining = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
+    elapsed = state.totalTime - actualRemaining;
+  } else {
+    elapsed = state.totalTime - state.timeRemaining;
+  }
+  if (elapsed >= 5) {
+    addSession(elapsed);
+  }
+  return elapsed;
 }
 
 // ---- Timer Logic ----
@@ -443,9 +484,13 @@ function startTimer() {
   }
 
   state.isRunning = true;
-  state.sessionStartedAt = Date.now();
   state.endTime = Date.now() + state.timeRemaining * 1000;
-  storage.set('timerState', { endTime: state.endTime, mode: state.mode, totalTime: state.totalTime, label: state.sessionLabel });
+  storage.set('timerState', {
+    endTime: state.endTime,
+    mode: state.mode,
+    totalTime: state.totalTime,
+    label: state.sessionLabel,
+  });
   updateStartButton(true);
 
   const statusMap = { focus: 'Focusing...', 'short-break': 'On break...', 'long-break': 'On break...' };
@@ -495,6 +540,11 @@ function pauseTimer() {
 }
 
 function resetTimer() {
+  // Save any elapsed focus time before resetting
+  if (state.isRunning || state.totalTime !== state.timeRemaining) {
+    savePartialProgress();
+  }
+
   state.isRunning = false;
   state.endTime = null;
   clearInterval(state.interval);
@@ -519,6 +569,8 @@ function completeSession() {
   sound.stopTicking();
   releaseWakeLock();
   state.isRunning = false;
+  storage.set('timerState', null);
+  storage.set('partialProgress', null);
 
   // Play sound
   sound.playSynthSound(state.settings.completionSound);
@@ -794,8 +846,10 @@ function setupEventListeners() {
     tab.addEventListener('click', () => {
       if (state.isRunning) {
         if (!confirm('Timer is running. Switch mode?')) return;
+        savePartialProgress();
         clearInterval(state.interval);
         sound.stopTicking();
+        storage.set('timerState', null);
       }
       setMode(tab.dataset.mode);
     });
@@ -907,6 +961,50 @@ function setupEventListeners() {
 
 // ---- Boot ----
 document.addEventListener('DOMContentLoaded', init);
+
+// ---- Persist partial progress when app is being killed ----
+// pagehide is more reliable than beforeunload on iOS Safari / PWAs
+window.addEventListener('pagehide', () => {
+  if (state.mode === 'focus') {
+    let elapsed = 0;
+    if (state.isRunning && state.endTime) {
+      const actualRemaining = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
+      elapsed = state.totalTime - actualRemaining;
+    } else {
+      elapsed = state.totalTime - state.timeRemaining;
+    }
+    
+    if (elapsed >= 5) {
+      storage.set('partialProgress', {
+        elapsed: elapsed,
+        mode: state.mode,
+        label: state.sessionLabel,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+});
+
+window.addEventListener('beforeunload', () => {
+  if (state.mode === 'focus') {
+    let elapsed = 0;
+    if (state.isRunning && state.endTime) {
+      const actualRemaining = Math.max(0, Math.round((state.endTime - Date.now()) / 1000));
+      elapsed = state.totalTime - actualRemaining;
+    } else {
+      elapsed = state.totalTime - state.timeRemaining;
+    }
+    
+    if (elapsed >= 5) {
+      storage.set('partialProgress', {
+        elapsed: elapsed,
+        mode: state.mode,
+        label: state.sessionLabel,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+});
 
 // ---- Service Worker Registration ----
 if ('serviceWorker' in navigator) {
