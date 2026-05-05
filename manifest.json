@@ -2,7 +2,7 @@
   "name": "Focusflow — Pomodoro Timer",
   "short_name": "Focusflow",
   "description": "A beautiful Pomodoro timer with session tracking and focus calendar.",
-  "start_url": "/",
+  "start_url": "./",
   "display": "standalone",
   "background_color": "#0a0e17",
   "theme_color": "#f97316",

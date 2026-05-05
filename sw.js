@@ -1,12 +1,12 @@
-const CACHE_NAME = 'focusflow-v1';
+const CACHE_NAME = 'focusflow-v2';
 const ASSETS = [
-  '/',
-  '/index.html',
-  '/styles.css',
-  '/app.js',
-  '/manifest.json',
-  '/icon-192.png',
-  '/icon-512.png'
+  './',
+  './index.html',
+  './styles.css',
+  './app.js',
+  './manifest.json',
+  './icon-192.png',
+  './icon-512.png'
 ];
 
 // Install — cache all assets
