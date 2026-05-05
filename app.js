@@ -134,6 +134,44 @@ const storage = {
   }
 };
 
+// ---- Web Worker Timer (resilient to iOS throttling) ----
+let timerWorker = null;
+function createTimerWorker() {
+  if (timerWorker) timerWorker.terminate();
+  const workerCode = `
+    let intervalId = null;
+    self.onmessage = function(e) {
+      if (e.data === 'start') {
+        if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(() => self.postMessage('tick'), 1000);
+      } else if (e.data === 'stop') {
+        if (intervalId) { clearInterval(intervalId); intervalId = null; }
+      }
+    };
+  `;
+  try {
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    timerWorker = new Worker(URL.createObjectURL(blob));
+    return timerWorker;
+  } catch (e) {
+    // Workers not supported — fallback to setInterval only
+    return null;
+  }
+}
+
+// ---- Wake Lock (keeps screen on during timer) ----
+let wakeLock = null;
+async function requestWakeLock() {
+  if (!('wakeLock' in navigator)) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { /* wake lock failed — non-critical */ }
+}
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+
 // ---- App State ----
 const state = {
   mode: 'focus', // 'focus' | 'short-break' | 'long-break'
@@ -210,18 +248,64 @@ function init() {
     Notification.requestPermission();
   }
 
-  // Handle app coming back from background (iOS suspend/resume)
+  // ---- iOS / Background resilience ----
+  // Recalculate timer from wall-clock whenever the app wakes up.
+  // We use MULTIPLE events because iOS is inconsistent about which it fires.
+
+  function handleAppResume() {
+    if (!state.isRunning || !state.endTime) return;
+    const remaining = Math.round((state.endTime - Date.now()) / 1000);
+    if (remaining <= 0) {
+      completeSession();
+    } else {
+      state.timeRemaining = remaining;
+      updateTimerDisplay();
+    }
+  }
+
+  function handleAppSuspend() {
+    // Persist state so restoreTimerState works even after full process kill
+    if (state.isRunning && state.endTime) {
+      storage.set('timerState', {
+        endTime: state.endTime,
+        mode: state.mode,
+        totalTime: state.totalTime,
+        label: state.sessionLabel,
+      });
+    }
+  }
+
+  // visibilitychange — primary event, works on most browsers
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && state.isRunning && state.endTime) {
-      const remaining = Math.round((state.endTime - Date.now()) / 1000);
-      if (remaining <= 0) {
-        completeSession();
-      } else {
-        state.timeRemaining = remaining;
-        updateTimerDisplay();
-      }
+    if (document.visibilityState === 'visible') {
+      handleAppResume();
+      // Re-acquire wake lock (iOS releases it on hide)
+      if (state.isRunning) requestWakeLock();
+    } else {
+      handleAppSuspend();
     }
   });
+
+  // pageshow — more reliable on iOS Safari / PWA for back-forward cache
+  window.addEventListener('pageshow', (e) => {
+    handleAppResume();
+    if (state.isRunning) requestWakeLock();
+  });
+
+  // focus — fires when the PWA window regains focus
+  window.addEventListener('focus', () => {
+    handleAppResume();
+    if (state.isRunning) requestWakeLock();
+  });
+
+  // Re-acquire wake lock when screen turns back on
+  if ('wakeLock' in navigator) {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && state.isRunning) {
+        requestWakeLock();
+      }
+    });
+  }
 }
 
 // ---- Restore timer after app reopen ----
@@ -371,21 +455,40 @@ function startTimer() {
     sound.startTicking(state.settings.tickingVolume);
   }
 
-  state.interval = setInterval(() => {
+  // Acquire Wake Lock to prevent screen sleep on iOS
+  requestWakeLock();
+
+  // Tick handler — always recalculates from wall-clock endTime
+  const tickHandler = () => {
+    if (!state.isRunning || !state.endTime) return;
     const remaining = Math.round((state.endTime - Date.now()) / 1000);
     state.timeRemaining = Math.max(0, remaining);
     if (state.timeRemaining <= 0) {
       completeSession();
     }
     updateTimerDisplay();
-  }, 1000);
+  };
+
+  // Primary: setInterval (works when tab is active)
+  state.interval = setInterval(tickHandler, 1000);
+
+  // Secondary: Web Worker timer (survives iOS main-thread throttling)
+  try {
+    const worker = createTimerWorker();
+    if (worker) {
+      worker.onmessage = tickHandler;
+      worker.postMessage('start');
+    }
+  } catch (e) { /* worker fallback failed — setInterval still running */ }
 }
 
 function pauseTimer() {
   state.isRunning = false;
   state.endTime = null;
   clearInterval(state.interval);
+  if (timerWorker) { timerWorker.postMessage('stop'); }
   sound.stopTicking();
+  releaseWakeLock();
   storage.set('timerState', null);
   updateStartButton(false);
   dom.timerStatus.textContent = 'Paused';
@@ -395,7 +498,9 @@ function resetTimer() {
   state.isRunning = false;
   state.endTime = null;
   clearInterval(state.interval);
+  if (timerWorker) { timerWorker.postMessage('stop'); }
   sound.stopTicking();
+  releaseWakeLock();
   storage.set('timerState', null);
   state.timeRemaining = state.totalTime;
   updateTimerDisplay();
@@ -410,7 +515,9 @@ function skipSession() {
 
 function completeSession() {
   clearInterval(state.interval);
+  if (timerWorker) { timerWorker.postMessage('stop'); }
   sound.stopTicking();
+  releaseWakeLock();
   state.isRunning = false;
 
   // Play sound
