@@ -144,6 +144,7 @@ const state = {
   interval: null,
   sessionLabel: '',
   sessionStartedAt: null,
+  endTime: null,        // timestamp when timer should finish
 
   settings: {
     focusDuration: 25,
@@ -202,10 +203,51 @@ function init() {
   updateTodayStats();
   setupEventListeners();
   loadCustomSoundUI();
+  restoreTimerState();
 
   // Request notification permission if enabled
   if (state.settings.browserNotifications && 'Notification' in window) {
     Notification.requestPermission();
+  }
+
+  // Handle app coming back from background (iOS suspend/resume)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && state.isRunning && state.endTime) {
+      const remaining = Math.round((state.endTime - Date.now()) / 1000);
+      if (remaining <= 0) {
+        completeSession();
+      } else {
+        state.timeRemaining = remaining;
+        updateTimerDisplay();
+      }
+    }
+  });
+}
+
+// ---- Restore timer after app reopen ----
+function restoreTimerState() {
+  const saved = storage.get('timerState', null);
+  if (!saved || !saved.endTime) return;
+
+  const remaining = Math.round((saved.endTime - Date.now()) / 1000);
+  if (remaining <= 0) {
+    // Timer expired while app was closed — record the session
+    storage.set('timerState', null);
+    setMode(saved.mode);
+    state.totalTime = saved.totalTime;
+    state.sessionLabel = saved.label || '';
+    dom.sessionLabel.value = state.sessionLabel;
+    state.timeRemaining = 0;
+    completeSession();
+  } else {
+    // Timer still running — resume it
+    setMode(saved.mode);
+    state.totalTime = saved.totalTime;
+    state.timeRemaining = remaining;
+    state.sessionLabel = saved.label || '';
+    dom.sessionLabel.value = state.sessionLabel;
+    updateTimerDisplay();
+    startTimer();
   }
 }
 
@@ -318,6 +360,8 @@ function startTimer() {
 
   state.isRunning = true;
   state.sessionStartedAt = Date.now();
+  state.endTime = Date.now() + state.timeRemaining * 1000;
+  storage.set('timerState', { endTime: state.endTime, mode: state.mode, totalTime: state.totalTime, label: state.sessionLabel });
   updateStartButton(true);
 
   const statusMap = { focus: 'Focusing...', 'short-break': 'On break...', 'long-break': 'On break...' };
@@ -328,9 +372,9 @@ function startTimer() {
   }
 
   state.interval = setInterval(() => {
-    state.timeRemaining--;
+    const remaining = Math.round((state.endTime - Date.now()) / 1000);
+    state.timeRemaining = Math.max(0, remaining);
     if (state.timeRemaining <= 0) {
-      state.timeRemaining = 0;
       completeSession();
     }
     updateTimerDisplay();
@@ -339,16 +383,20 @@ function startTimer() {
 
 function pauseTimer() {
   state.isRunning = false;
+  state.endTime = null;
   clearInterval(state.interval);
   sound.stopTicking();
+  storage.set('timerState', null);
   updateStartButton(false);
   dom.timerStatus.textContent = 'Paused';
 }
 
 function resetTimer() {
   state.isRunning = false;
+  state.endTime = null;
   clearInterval(state.interval);
   sound.stopTicking();
+  storage.set('timerState', null);
   state.timeRemaining = state.totalTime;
   updateTimerDisplay();
   updateStartButton(false);
