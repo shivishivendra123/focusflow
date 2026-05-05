@@ -293,7 +293,8 @@ body {
 .settings-panel:not(.hidden), .sounds-panel:not(.hidden) { transform: translateX(0); }
 .panel-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 24px; border-bottom: 1px solid var(--border-color); position: sticky; top: 0;
+  padding: 20px 24px; padding-top: calc(20px + env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border-color); position: sticky; top: 0;
   background: var(--bg-secondary); z-index: 1;
 }
 .panel-header h2 { font-size: 1.1rem; font-weight: 700; }
