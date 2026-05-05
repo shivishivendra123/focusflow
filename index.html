@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <meta name="description" content="Focusflow — A beautiful Pomodoro timer with session tracking and GitHub-style heatmap."/>
+  <title>Focusflow — Pomodoro Timer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="styles.css"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="apple-touch-icon" href="icon-192.png"/>
+  <meta name="theme-color" content="#0a0e17"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="Focusflow"/>
+</head>
+<body>
+  <div class="ambient-bg">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+  </div>
+
+  <div class="app-container">
+    <header class="app-header">
+      <div class="logo">
+        <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <h1>Focusflow</h1>
+      </div>
+      <div class="header-actions">
+        <button id="settings-toggle" class="icon-btn" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </button>
+        <button id="sounds-toggle" class="icon-btn" aria-label="Sounds">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <main class="main-content">
+      <section class="timer-section">
+        <div class="mode-tabs">
+          <button class="mode-tab active" data-mode="focus" id="tab-focus">Focus</button>
+          <button class="mode-tab" data-mode="short-break" id="tab-short-break">Short Break</button>
+          <button class="mode-tab" data-mode="long-break" id="tab-long-break">Long Break</button>
+        </div>
+        <div class="session-label-wrapper">
+          <input type="text" id="session-label" class="session-label-input" placeholder="What are you working on?" maxlength="50" autocomplete="off"/>
+        </div>
+        <div class="timer-ring-container">
+          <svg class="timer-ring" viewBox="0 0 260 260">
+            <circle class="timer-ring-bg" cx="130" cy="130" r="120"/>
+            <circle class="timer-ring-progress" cx="130" cy="130" r="120" id="timer-progress"/>
+          </svg>
+          <div class="timer-display">
+            <span class="timer-time" id="timer-display">25:00</span>
+            <span class="timer-status" id="timer-status">Ready to focus</span>
+          </div>
+        </div>
+        <div class="timer-controls">
+          <button class="control-btn secondary" id="btn-reset" aria-label="Reset">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          </button>
+          <button class="control-btn primary" id="btn-start" aria-label="Start">
+            <svg class="play-icon" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <svg class="pause-icon hidden" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          </button>
+          <button class="control-btn secondary" id="btn-skip" aria-label="Skip">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          </button>
+        </div>
+        <div class="session-counter" id="session-counter"></div>
+      </section>
+
+      <section class="stats-bar">
+        <div class="stat-item"><span class="stat-value" id="stat-sessions">0</span><span class="stat-label">Sessions</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><span class="stat-value" id="stat-hours">0h 0m</span><span class="stat-label">Focus Time</span></div>
+        <div class="stat-divider"></div>
+        <div class="stat-item"><span class="stat-value" id="stat-streak">0</span><span class="stat-label">Day Streak</span></div>
+      </section>
+
+      <section class="calendar-section">
+        <div class="section-header">
+          <h2>Focus Activity</h2>
+          <div class="calendar-nav">
+            <button class="nav-btn" id="cal-prev" aria-label="Previous"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg></button>
+            <span class="cal-year" id="cal-year">2026</span>
+            <button class="nav-btn" id="cal-next" aria-label="Next"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+          </div>
+        </div>
+        <div class="calendar-legend-months" id="calendar-months"></div>
+        <div class="calendar-wrapper">
+          <div class="calendar-day-labels"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div>
+          <div class="calendar-grid" id="calendar-grid"></div>
+        </div>
+        <div class="calendar-legend">
+          <span class="legend-label">Less</span>
+          <span class="legend-cell" data-level="0"></span><span class="legend-cell" data-level="1"></span><span class="legend-cell" data-level="2"></span><span class="legend-cell" data-level="3"></span><span class="legend-cell" data-level="4"></span>
+          <span class="legend-label">More</span>
+        </div>
+      </section>
+
+      <section class="recent-sessions">
+        <div class="section-header"><h2>Recent Sessions</h2><button class="text-btn" id="clear-history">Clear All</button></div>
+        <div class="sessions-list" id="sessions-list"><p class="empty-state">No sessions yet. Start your first focus session!</p></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="panel-overlay hidden" id="settings-overlay"></div>
+  <aside class="settings-panel hidden" id="settings-panel">
+    <div class="panel-header"><h2>Settings</h2><button class="icon-btn" id="settings-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="panel-body">
+      <div class="setting-group"><h3>Timer Durations</h3>
+        <div class="setting-row"><label for="focus-duration">Focus (min)</label><div class="stepper"><button class="stepper-btn" data-target="focus-duration" data-dir="-1">−</button><input type="number" id="focus-duration" value="25" min="1" max="120"/><button class="stepper-btn" data-target="focus-duration" data-dir="1">+</button></div></div>
+        <div class="setting-row"><label for="short-break-duration">Short Break (min)</label><div class="stepper"><button class="stepper-btn" data-target="short-break-duration" data-dir="-1">−</button><input type="number" id="short-break-duration" value="5" min="1" max="30"/><button class="stepper-btn" data-target="short-break-duration" data-dir="1">+</button></div></div>
+        <div class="setting-row"><label for="long-break-duration">Long Break (min)</label><div class="stepper"><button class="stepper-btn" data-target="long-break-duration" data-dir="-1">−</button><input type="number" id="long-break-duration" value="15" min="1" max="60"/><button class="stepper-btn" data-target="long-break-duration" data-dir="1">+</button></div></div>
+        <div class="setting-row"><label for="sessions-before-long">Sessions before long break</label><div class="stepper"><button class="stepper-btn" data-target="sessions-before-long" data-dir="-1">−</button><input type="number" id="sessions-before-long" value="4" min="2" max="10"/><button class="stepper-btn" data-target="sessions-before-long" data-dir="1">+</button></div></div>
+      </div>
+      <div class="setting-group"><h3>Preferences</h3>
+        <div class="setting-row toggle-row"><label for="auto-start-breaks">Auto-start breaks</label><label class="toggle"><input type="checkbox" id="auto-start-breaks"/><span class="toggle-slider"></span></label></div>
+        <div class="setting-row toggle-row"><label for="auto-start-focus">Auto-start focus</label><label class="toggle"><input type="checkbox" id="auto-start-focus"/><span class="toggle-slider"></span></label></div>
+        <div class="setting-row toggle-row"><label for="browser-notifications">Browser notifications</label><label class="toggle"><input type="checkbox" id="browser-notifications"/><span class="toggle-slider"></span></label></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Sounds Panel -->
+  <div class="panel-overlay hidden" id="sounds-overlay"></div>
+  <aside class="sounds-panel hidden" id="sounds-panel">
+    <div class="panel-header"><h2>Sounds</h2><button class="icon-btn" id="sounds-close" aria-label="Close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></div>
+    <div class="panel-body">
+      <div class="setting-group"><h3>Completion Sound</h3><p class="setting-desc">Sound played when a session ends</p>
+        <div class="sound-options" id="completion-sounds">
+          <label class="sound-option"><input type="radio" name="completion-sound" value="bell" checked/><span class="sound-option-label"><span class="sound-name">Bell</span><button class="preview-btn" data-sound="bell">▶</button></span></label>
+          <label class="sound-option"><input type="radio" name="completion-sound" value="chime"/><span class="sound-option-label"><span class="sound-name">Chime</span><button class="preview-btn" data-sound="chime">▶</button></span></label>
+          <label class="sound-option"><input type="radio" name="completion-sound" value="ding"/><span class="sound-option-label"><span class="sound-name">Ding</span><button class="preview-btn" data-sound="ding">▶</button></span></label>
+          <label class="sound-option"><input type="radio" name="completion-sound" value="gong"/><span class="sound-option-label"><span class="sound-name">Gong</span><button class="preview-btn" data-sound="gong">▶</button></span></label>
+          <label class="sound-option"><input type="radio" name="completion-sound" value="none"/><span class="sound-option-label"><span class="sound-name">None</span></span></label>
+        </div>
+      </div>
+      <div class="setting-group"><h3>Custom Sound</h3><p class="setting-desc">Upload your own completion sound</p>
+        <div class="custom-sound-upload">
+          <label class="upload-btn" for="custom-sound-file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Upload Sound File</label>
+          <input type="file" id="custom-sound-file" accept="audio/*" class="hidden-input"/>
+          <div class="custom-sound-info hidden" id="custom-sound-info"><span id="custom-sound-name"></span><button class="remove-custom-btn" id="remove-custom-sound">✕</button></div>
+        </div>
+        <label class="sound-option" id="custom-sound-option" style="display:none;"><input type="radio" name="completion-sound" value="custom"/><span class="sound-option-label"><span class="sound-name">Custom</span><button class="preview-btn" data-sound="custom">▶</button></span></label>
+      </div>
+      <div class="setting-group"><h3>Ticking Sound</h3>
+        <div class="setting-row toggle-row"><label for="ticking-enabled">Enable ticking</label><label class="toggle"><input type="checkbox" id="ticking-enabled"/><span class="toggle-slider"></span></label></div>
+        <div class="setting-row"><label for="ticking-volume">Volume</label><input type="range" id="ticking-volume" min="0" max="100" value="30" class="range-slider"/></div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="calendar-tooltip hidden" id="calendar-tooltip"></div>
+  <script src="app.js"></script>
+</body>
+</html>
