@@ -778,20 +778,27 @@ function hideTooltip() {
   dom.tooltip.classList.add('hidden');
 }
 
+let activeTooltipCell = null;
+
 function handleCellClick(e) {
+  e.stopPropagation();
   const cell = e.target;
-  const date = cell.dataset.date;
-  const mins = parseInt(cell.dataset.mins) || 0;
-  const hours = Math.floor(mins / 60);
-  const m = mins % 60;
-  const timeStr = mins > 0 ? (hours > 0 ? `${hours}h ${m}m` : `${m} min`) : 'No activity';
-
-  const dateObj = new Date(date + 'T12:00:00');
-  const dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-
-  alert(`${dateStr}\n\nFocused Time: ${timeStr}`);
+  
+  if (activeTooltipCell === cell && !dom.tooltip.classList.contains('hidden')) {
+    hideTooltip();
+    activeTooltipCell = null;
+  } else {
+    showTooltip(e);
+    activeTooltipCell = cell;
+  }
 }
 
+document.addEventListener('click', (e) => {
+  if (!e.target.classList.contains('calendar-cell') && !dom.tooltip.classList.contains('hidden')) {
+    hideTooltip();
+    activeTooltipCell = null;
+  }
+});
 // ---- Recent Sessions ----
 function renderRecentSessions() {
   const recent = [...state.sessions].reverse().slice(0, 10);
