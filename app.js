@@ -224,6 +224,8 @@ const dom = {
   calYear: $('cal-year'),
   sessionsList: $('sessions-list'),
   tooltip: $('calendar-tooltip'),
+  analyticsMonth: $('analytics-month'),
+  analyticsTbody: $('analytics-tbody'),
 };
 
 // ---- Circumference for SVG ring ----
@@ -241,6 +243,7 @@ function init() {
   setupEventListeners();
   loadCustomSoundUI();
   restoreTimerState();
+  renderAnalytics();
 
   // Request notification permission if enabled
   if (state.settings.browserNotifications && 'Notification' in window) {
@@ -422,6 +425,7 @@ function addSession(durationSeconds) {
   updateTodayStats();
   renderCalendar();
   renderRecentSessions();
+  renderAnalytics();
 }
 
 /**
@@ -721,9 +725,9 @@ function renderCalendar() {
       const hours = Math.floor(mins / 60);
       const m = mins % 60;
       const timeStr = hours > 0 ? `${hours}h ${m}m` : `${m}m`;
-      html += `<div class="${classes.join(' ')}" data-level="${level}" data-date="${dateStr}" data-mins="${mins}" title="${dateStr}: ${timeStr}"></div>`;
+      html += `<button type="button" class="${classes.join(' ')}" data-level="${level}" data-date="${dateStr}" data-mins="${mins}" aria-label="${dateStr}: ${timeStr}"></button>`;
     } else {
-      html += `<div class="calendar-cell" data-level="0" style="visibility:hidden;"></div>`;
+      html += `<button type="button" class="calendar-cell" data-level="0" style="visibility:hidden;" disabled></button>`;
     }
 
     if (d.getDay() === 6) {
@@ -826,6 +830,68 @@ function renderRecentSessions() {
   dom.sessionsList.innerHTML = html;
 }
 
+// ---- Analytics Table ----
+function renderAnalytics() {
+  // Group by date
+  const dataMap = {};
+  state.sessions.forEach(s => {
+    if (!dataMap[s.date]) {
+      dataMap[s.date] = { duration: 0, count: 0 };
+    }
+    dataMap[s.date].duration += s.duration;
+    dataMap[s.date].count += 1;
+  });
+
+  const dates = Object.keys(dataMap).sort().reverse();
+  const selectedMonth = dom.analyticsMonth.value;
+  
+  // Extract unique months for the dropdown
+  const monthsSet = new Set();
+  dates.forEach(d => {
+    monthsSet.add(d.slice(0, 7)); // YYYY-MM
+  });
+  const months = Array.from(monthsSet).sort().reverse();
+  
+  // Rebuild dropdown
+  let optionsHtml = '<option value="all">All Time</option>';
+  months.forEach(m => {
+    const d = new Date(m + '-01T12:00:00');
+    const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const selected = m === selectedMonth ? 'selected' : '';
+    optionsHtml += `<option value="${m}" ${selected}>${label}</option>`;
+  });
+  dom.analyticsMonth.innerHTML = optionsHtml;
+
+  // Filter dates
+  const filteredDates = selectedMonth === 'all' ? dates : dates.filter(d => d.startsWith(selectedMonth));
+
+  if (filteredDates.length === 0) {
+    dom.analyticsTbody.innerHTML = '<tr><td colspan="3" class="empty-state" style="border:none;">No activity found.</td></tr>';
+    return;
+  }
+
+  let tableHtml = '';
+  filteredDates.forEach(dateStr => {
+    const stat = dataMap[dateStr];
+    const mins = Math.round(stat.duration / 60);
+    const hours = Math.floor(mins / 60);
+    const m = mins % 60;
+    const timeStr = hours > 0 ? `${hours}h ${m}m` : `${m}m`;
+    
+    const dateObj = new Date(dateStr + 'T12:00:00');
+    const displayDate = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    
+    tableHtml += `
+      <tr>
+        <td>${displayDate}</td>
+        <td style="text-align: right; color: var(--accent-focus); font-weight: 500;">${timeStr}</td>
+        <td style="text-align: right; color: var(--text-muted);">${stat.count}</td>
+      </tr>
+    `;
+  });
+  dom.analyticsTbody.innerHTML = tableHtml;
+}
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -891,6 +957,12 @@ function setupEventListeners() {
   $('sounds-toggle').addEventListener('click', () => togglePanel('sounds-panel', 'sounds-overlay', true));
   $('sounds-close').addEventListener('click', () => { saveSettings(); togglePanel('sounds-panel', 'sounds-overlay', false); });
   $('sounds-overlay').addEventListener('click', () => { saveSettings(); togglePanel('sounds-panel', 'sounds-overlay', false); });
+
+  // Analytics panel
+  $('analytics-toggle').addEventListener('click', () => togglePanel('analytics-panel', 'analytics-overlay', true));
+  $('analytics-close').addEventListener('click', () => togglePanel('analytics-panel', 'analytics-overlay', false));
+  $('analytics-overlay').addEventListener('click', () => togglePanel('analytics-panel', 'analytics-overlay', false));
+  $('analytics-month').addEventListener('change', renderAnalytics);
 
   // Steppers
   document.querySelectorAll('.stepper-btn').forEach(btn => {
@@ -959,6 +1031,7 @@ function setupEventListeners() {
       state.sessions = [];
       saveSessions();
       renderRecentSessions();
+      renderAnalytics();
       renderCalendar();
       updateTodayStats();
     }
