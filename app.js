@@ -751,6 +751,7 @@ function renderCalendar() {
   dom.calendarGrid.querySelectorAll('.calendar-cell[data-date]').forEach(cell => {
     cell.addEventListener('mouseenter', showTooltip);
     cell.addEventListener('mouseleave', hideTooltip);
+    cell.addEventListener('click', handleCellClick);
   });
 }
 
@@ -775,6 +776,20 @@ function showTooltip(e) {
 
 function hideTooltip() {
   dom.tooltip.classList.add('hidden');
+}
+
+function handleCellClick(e) {
+  const cell = e.target;
+  const date = cell.dataset.date;
+  const mins = parseInt(cell.dataset.mins) || 0;
+  const hours = Math.floor(mins / 60);
+  const m = mins % 60;
+  const timeStr = mins > 0 ? (hours > 0 ? `${hours}h ${m}m` : `${m} min`) : 'No activity';
+
+  const dateObj = new Date(date + 'T12:00:00');
+  const dateStr = dateObj.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+  alert(`${dateStr}\n\nFocused Time: ${timeStr}`);
 }
 
 // ---- Recent Sessions ----
