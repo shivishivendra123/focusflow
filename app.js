@@ -340,19 +340,28 @@ function restoreTimerState() {
   if (remaining <= 0) {
     // Timer expired while app was closed — record the full session
     storage.set('timerState', null);
-    setMode(saved.mode);
-    state.totalTime = saved.totalTime;
-    state.sessionLabel = saved.label || '';
-    dom.sessionLabel.value = state.sessionLabel;
-    state.timeRemaining = 0;
-    completeSession();
+    if (saved.mode === 'focus') {
+      // Credit the full session duration
+      addSession(saved.totalTime);
+    }
+    // Move to next mode
+    setMode(saved.mode === 'focus' ? 'short-break' : 'focus');
   } else {
     // Timer still running — resume it
-    setMode(saved.mode);
+    state.mode = saved.mode;
     state.totalTime = saved.totalTime;
     state.timeRemaining = remaining;
+    state.endTime = saved.endTime;
     state.sessionLabel = saved.label || '';
+    state.sessionStartedAt = saved.startedAt || Date.now();
     dom.sessionLabel.value = state.sessionLabel;
+
+    // Update UI for the correct mode without resetting time
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector(`.mode-tab[data-mode="${saved.mode}"]`).classList.add('active');
+    const isBreak = saved.mode !== 'focus';
+    dom.timerProgress.classList.toggle('break-mode', isBreak);
+
     updateTimerDisplay();
     startTimer();
   }
@@ -512,6 +521,16 @@ function startTimer() {
     if (!state.isRunning || !state.endTime) return;
     const remaining = Math.round((state.endTime - Date.now()) / 1000);
     state.timeRemaining = Math.max(0, remaining);
+
+    // Persist state every tick so it survives sudden app kills
+    storage.set('timerState', {
+      endTime: state.endTime,
+      mode: state.mode,
+      totalTime: state.totalTime,
+      label: state.sessionLabel,
+      startedAt: state.sessionStartedAt,
+    });
+
     if (state.timeRemaining <= 0) {
       completeSession();
     }

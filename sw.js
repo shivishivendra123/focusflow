@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focusflow-v3';
+const CACHE_NAME = 'focusflow-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -27,9 +27,17 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — serve from cache, fall back to network
+// Fetch — network-first strategy: try network, fall back to cache
+// This ensures users always get the latest version when online
 self.addEventListener('fetch', (event) => {
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request))
+    fetch(event.request)
+      .then((response) => {
+        // Clone and cache the fresh response
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
   );
 });
