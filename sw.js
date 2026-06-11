@@ -1,4 +1,4 @@
-const CACHE_NAME = 'focusflow-v4';
+const CACHE_NAME = 'focusflow-v5';
 const ASSETS = [
   './',
   './index.html',

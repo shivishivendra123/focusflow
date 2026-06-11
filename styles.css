@@ -160,6 +160,14 @@ body {
 .control-btn.primary svg { width: 28px; height: 28px; }
 .control-btn.primary:hover { transform: scale(1.08); box-shadow: 0 6px 32px var(--accent-focus-glow); }
 .control-btn.primary:active { transform: scale(0.95); }
+.control-btn.stop {
+  width: 48px; height: 48px; border-radius: 50%;
+  background: rgba(239, 68, 68, 0.15); color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+.control-btn.stop svg { width: 20px; height: 20px; }
+.control-btn.stop:hover { background: rgba(239, 68, 68, 0.25); transform: scale(1.05); border-color: rgba(239, 68, 68, 0.5); }
+.control-btn.stop:active { transform: scale(0.95); }
 .hidden { display: none !important; }
 
 /* Session Counter */

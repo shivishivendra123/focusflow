@@ -211,6 +211,7 @@ const dom = {
   timerProgress: $('timer-progress'),
   btnStart: $('btn-start'),
   btnReset: $('btn-reset'),
+  btnStop: $('btn-stop'),
   btnSkip: $('btn-skip'),
   playIcon: document.querySelector('.play-icon'),
   pauseIcon: document.querySelector('.pause-icon'),
@@ -582,6 +583,37 @@ function resetTimer() {
   dom.timerStatus.textContent = statusMap[state.mode];
 }
 
+function stopTimer() {
+  // Save elapsed focus time to progress, then reset
+  const elapsed = savePartialProgress();
+
+  state.isRunning = false;
+  state.endTime = null;
+  clearInterval(state.interval);
+  if (timerWorker) { timerWorker.postMessage('stop'); }
+  sound.stopTicking();
+  releaseWakeLock();
+  storage.set('timerState', null);
+  state.timeRemaining = state.totalTime;
+  updateTimerDisplay();
+  updateStartButton(false);
+
+  if (elapsed >= 5) {
+    const mins = Math.round(elapsed / 60);
+    dom.timerStatus.textContent = `Saved ${mins}m of focus time`;
+    // Clear the status message after 3 seconds
+    setTimeout(() => {
+      if (!state.isRunning) {
+        const statusMap = { focus: 'Ready to focus', 'short-break': 'Ready for break', 'long-break': 'Ready for break' };
+        dom.timerStatus.textContent = statusMap[state.mode];
+      }
+    }, 3000);
+  } else {
+    const statusMap = { focus: 'Ready to focus', 'short-break': 'Ready for break', 'long-break': 'Ready for break' };
+    dom.timerStatus.textContent = statusMap[state.mode];
+  }
+}
+
 function skipSession() {
   completeSession();
 }
@@ -642,6 +674,9 @@ function updateTimerDisplay() {
 function updateStartButton(running) {
   dom.playIcon.classList.toggle('hidden', running);
   dom.pauseIcon.classList.toggle('hidden', !running);
+  // Show stop button when timer is running or paused mid-session
+  const hasElapsed = state.totalTime !== state.timeRemaining;
+  dom.btnStop.classList.toggle('hidden', !running && !hasElapsed);
 }
 
 function updateSessionCounter() {
@@ -946,6 +981,7 @@ function setupEventListeners() {
   // Timer controls
   dom.btnStart.addEventListener('click', startTimer);
   dom.btnReset.addEventListener('click', resetTimer);
+  dom.btnStop.addEventListener('click', stopTimer);
   dom.btnSkip.addEventListener('click', skipSession);
 
   // Mode tabs
